@@ -19,6 +19,11 @@ public class AuthCon {
         this.authService = authService;
     }
 
+    @GetMapping("/test")
+    public String test(){
+        return "App working";
+    }
+
     @PostMapping("/register")
     public ResponseDto register(@RequestBody User user){
     return authService.addUser(user);
