@@ -1,10 +1,14 @@
 package com.officeproject.backend.Services;
 
+import com.officeproject.backend.Dto.AuthResponseDto;
 import com.officeproject.backend.Dto.ResponseDto;
+import com.officeproject.backend.Entity.EmployeeDetails;
 import com.officeproject.backend.Entity.PasswordReset;
 import com.officeproject.backend.Entity.User;
 import com.officeproject.backend.Repository.AuthRepo;
+import com.officeproject.backend.Repository.EmployeeRepo;
 import com.officeproject.backend.Repository.PasswordResetRepository;
+import com.officeproject.backend.Utils.JwtUtil;
 import com.officeproject.backend.Utils.TokenUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -27,6 +31,9 @@ public class AuthService {
     private EmailServiceImpl emailService;
     @Autowired
     private PasswordResetRepository passwordResetRepository;
+    @Autowired
+    private EmployeeRepo employeeRepo;
+
     private final long Token_Expiry_Minutes=15;
     private final String RESET_BASE_URL="http://localhost:5173/NewPassword";
 
@@ -39,19 +46,46 @@ public class AuthService {
             return ResponseDto.builder().status(false).message("User Already Exist").build();
         }
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-        authRepo.save(user);
+        User savedUser=authRepo.save(user);
+
         return ResponseDto.builder().status(true).message("Registered Successfully").build();
     }
 
-    public ResponseDto login(User user) {
-        if(user==null || !StringUtils.hasText(user.getEmail())|| !StringUtils.hasText(user.getPassword()))
-            return ResponseDto.builder().status(false).message("Missing Data").build();
-        User user1 = authRepo.findByEmail(user.getEmail());
-        if (user1 != null && passwordEncoder.matches(user.getPassword(), user1.getPassword())) {
-            return ResponseDto.builder().status(true).message("Login Success").build();
+    public AuthResponseDto login(User user) {
+
+        if (user == null ||
+                !StringUtils.hasText(user.getEmail()) ||
+                !StringUtils.hasText(user.getPassword())) {
+
+            return AuthResponseDto.builder()
+                    .status(false)
+                    .message("Missing Data")
+                    .build();
         }
 
-        return ResponseDto.builder().status(false).message("invalid credentials").build();
+        User user1 = authRepo.findByEmail(user.getEmail());
+
+        if (user1 != null &&
+                passwordEncoder.matches(user.getPassword(), user1.getPassword())) {
+
+            String token = JwtUtil.generateToken(
+                    user1.getId(),
+                    user1.getEmail()
+            );
+
+            return AuthResponseDto.builder()
+                    .status(true)
+                    .message("Login Success")
+                    .token(token)
+                    .userId(user1.getId())
+                    .email(user1.getEmail())
+                    .build();
+        }
+
+        return AuthResponseDto.builder()
+                .status(false)
+                .message("Invalid credentials")
+                .build();
     }
 
 
@@ -119,5 +153,24 @@ public class AuthService {
                 .message("Password updated successfully")
                 .build();
     }
+    public ResponseDto createEmployee(EmployeeDetails emp, String token) {
+
+        // Remove "Bearer "
+        if (token.startsWith("Bearer ")) {
+            token = token.substring(7);
+        }
+
+        // Extract userId from JWT
+        String userId = JwtUtil.extractUserId(token);
+
+        emp.setUserId(userId);
+        employeeRepo.save(emp);
+
+        return ResponseDto.builder()
+                .status(true)
+                .message("Details Saved Successfully")
+                .build();
     }
+
+}
 

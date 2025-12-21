@@ -1,10 +1,12 @@
 package com.officeproject.backend.Controller;
 
+import com.officeproject.backend.Dto.AuthResponseDto;
 import com.officeproject.backend.Dto.ForgotPasswordRequest;
 import com.officeproject.backend.Dto.ResetRequest;
 import com.officeproject.backend.Dto.ResponseDto;
 import com.officeproject.backend.Entity.User;
 import com.officeproject.backend.Services.AuthService;
+import com.officeproject.backend.Utils.JwtUtil;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,8 +31,8 @@ public class AuthCon {
     return authService.addUser(user);
     }
     @PostMapping("/login")
-    public ResponseDto login(@RequestBody User user){
-        return authService.login(user);
+    public ResponseEntity<AuthResponseDto> login(@RequestBody User user) {
+        return ResponseEntity.ok(authService.login(user));
     }
 
     @PostMapping("/forgot")
@@ -43,4 +45,29 @@ public class AuthCon {
         ResponseDto resp=authService.verifyAndReset(resetRequest.getToken(),resetRequest.getNewPassword());
         return ResponseEntity.ok(resp);
     }
+    @GetMapping("/me")
+    public ResponseEntity<AuthResponseDto> me(
+            @RequestHeader("Authorization") String token) {
+
+        if (token.startsWith("Bearer ")) {
+            token = token.substring(7);
+        }
+
+        if (!JwtUtil.validateToken(token)) {
+            return ResponseEntity.status(401).build();
+        }
+
+        String userId = JwtUtil.extractUserId(token);
+        String email = JwtUtil.extractEmail(token);
+
+        return ResponseEntity.ok(
+                AuthResponseDto.builder()
+                        .status(true)
+                        .message("Token valid")
+                        .userId(userId)
+                        .email(email)
+                        .build()
+        );
+    }
+
 }
